@@ -40,11 +40,11 @@ def process_args_and_login(parser=None, client=None, showparameter=None, fields=
         debug = True
     if (debug or __debug__) and args.log_file is not None:
         try:
-            log_file = open(args.log_file, "wb")
+            log_file = open(args.log_file[0], "w")
         except IOError:
             debug_log("Could not open given log file for writing, sending debug information to stderr.")
     # open the output file if given one
-    output_file = open(args.output[0], "wb") if args.output else None
+    output_file = open(args.output[0], "w") if args.output else None
     output_file_format = args.format[0].lower()
     user_created = (args.user_created[0].lower() == "true") if args.user_created else True
 
@@ -141,7 +141,7 @@ def export_json(data, fields, output_file, output_file_format, user_created, app
 
 # getting the raw JSON data from the management server for commands such as show-...s
 def get_raw_data(param, payload=None, container_keys="objects", client=None):
-    if isinstance(container_keys, basestring):
+    if isinstance(container_keys, str):
         container_keys = [container_keys]
     # trying to log in to the management server
     if not payload:
@@ -213,7 +213,7 @@ def format_objects(data, fields_dict, output_file_format, user_created=True, dum
         res = {}
 
         # this loop removes unnecessary dicts and lists and adds the good values to extracted_fields
-        for key in flat.keys():
+        for key in flat.copy().keys():
             try:
                 if isinstance(flat[key], (list, dict)):
                     del flat[key]
@@ -232,7 +232,7 @@ def format_objects(data, fields_dict, output_file_format, user_created=True, dum
         if "whitelist" in fields_dict:
             if len(fields_dict["whitelist"]) > 0:
                 for pattern in fields_dict["whitelist"]:
-                    for key in flat.keys():
+                    for key in flat.copy().keys():
                         # match keys with the given patterns
                         if key_matches(key, pattern):
                             res[key] = flat[key]
@@ -329,7 +329,7 @@ def format_objects(data, fields_dict, output_file_format, user_created=True, dum
 # searches for values that are matched with keys that match the regex
 def search_dict(dictionary, regex):
     result = []
-    if isinstance(regex, basestring):
+    if isinstance(regex, str):
         regex = re.compile(regex)
     for key in dictionary:
         if key_matches(key, regex):
@@ -385,8 +385,8 @@ def key_matches(key, pattern):
 
 def key_matches(key, pattern):
     if pattern:
-        if isinstance(pattern, basestring):
-            return re.search(re.escape(pattern) if isinstance(pattern, unicode) else pattern, key)
+        if isinstance(pattern, str):
+            return re.search(pattern, key)
         else:
             return pattern.search(key)
     return False
@@ -476,7 +476,7 @@ def get_dict_len(d):
 # unravels a json tree into a dict with all the key-value pairs on the first level, with keys written as follows: 'k1.k2.7.k3' (7 for signifying the 8th element in the list k2)
 def flatten_json(jsondata):
     if isinstance(jsondata, dict):
-        jdkeys = jsondata.keys()
+        jdkeys = jsondata.copy().keys()
         for key in jdkeys:
             merge_flat_dicts(jsondata, flatten_json(jsondata[key]), key + '.')
         return jsondata
@@ -512,8 +512,8 @@ def flat_json_to_csv(jsondata, fields_order, print_column_names=True):
         for key in ordered_keys:
             var_to_append = ""
             if len(jsondata[key]) > i and jsondata[key][i] is not None:
-                if isinstance(jsondata[key][i], unicode):
-                    var_to_append = jsondata[key][i].encode("utf-8")
+                if isinstance(jsondata[key][i], str):
+                    var_to_append = jsondata[key][i]
                 else:
                     # var is int
                     var_to_append = str(jsondata[key][i])
@@ -572,7 +572,7 @@ def get_fields_order_and_replace(fields, whitelist, translate):
                     temp_keys.append(zfill_key(key))
         fields_order += sorted(temp_keys)
     # iterate over the list of remaining items in indexer, those that don't fit in a specific whitelisted field. general replacer
-    for k, v in indexer.iteritems():
+    for k, v in indexer.items():
         for i in range(len(fields_order)):
             if key_matches(fields_order[i], k):
                 for sub_pair in translate[v][1]:
@@ -691,14 +691,14 @@ def get_username_and_password(username=None, password=None):
     debug_log("Trying to get username and password.")
     # getting username and password if nothing else worked
     if username is None:
-        username = raw_input("Enter username: ")
+        username = input("Enter username: ")
     if password is None:
         # getpass only works in a tty:
         if sys.stdin.isatty():
             password = getpass.getpass("Enter password: ")
         else:
             print("Attention! Your password will be shown on the screen!", file=sys.stderr)
-            password = raw_input("Enter password: ")
+            password = input("Enter password: ")
     return username, password
 
 
@@ -736,7 +736,7 @@ class DependencyLoader(object):
         uidlist = []
         result = []
         extras = []
-        for k, v in self.treenodes_map.iteritems():
+        for k, v in self.treenodes_map.items():
             # it has no parents -> it is a root of a tree
             if not v.parents:
                 uidlist += v.postorder_traverse()
